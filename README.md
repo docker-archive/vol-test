@@ -17,6 +17,11 @@
 
 Example using the vieux/sshfs driver (replace `vieux/sshfs` with the name of the plugin/driver you wish to test):
 
+Prior to running tests the first time, you'll want to pull all the BATS assist submodules, as well:
+```
+git submodule update --recursive --remote
+```
+
 ```
 $PREFIX="docker-machine ssh node1 "
 $VOLDRIVER=vieux/sshfs
