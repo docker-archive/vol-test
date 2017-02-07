@@ -11,5 +11,6 @@ load test_helper
 
 @test "Test: Confirm volume is created using driver ($driver)" {
   run $prefix docker volume ls
-  [ $output == *"testvol"* ]
+  assert_line "$driver:latest   testvol"
+
 }
