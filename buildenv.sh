@@ -9,7 +9,7 @@ for n in $(seq 1 3); do
 done;
 
 leader_ip=`docker-machine ip node1`
-docker-machine ssh node1 docker searm init --advertise-addr $leader_ip
+docker-machine ssh node1 docker swarm init --advertise-addr $leader_ip
 token=`docker-machine ssh node1 docker swarm join-token worker -q`
 for n in $(seq 2 3); do
   docker-machine ssh node$n docker swarm join --token $token $leader_ip:2377
