@@ -6,7 +6,7 @@ echo `$PREFIX docker stop mounter`
 
 echo `$PREFIX docker rm mounter`
 
-echo `$PREFIX docker rm testvol`
+echo `$PREFIX docker volume rm testvol`
 
 #echo `$PREFIX docker plugin disable $VOLDRIVER`
 
