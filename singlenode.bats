@@ -3,7 +3,7 @@
 load test_helper
 
 @test "Test: Install plugin for driver ($driver)" {
-  skip "This test works, faster for rev without it"
+  #skip "This test works, faster for rev without it"
   run $prefix docker plugin install --grant-all-permissions $driver $pluginopts
   assert_success
 }
@@ -16,7 +16,6 @@ load test_helper
 @test "Test: Confirm volume is created (volume ls) using driver ($driver)" {
   run $prefix docker volume ls
   assert_line --partial "testvol"
-
 }
 
 @test "Test: Confirm docker volume inspect works using driver ($driver)" {
@@ -72,5 +71,11 @@ load test_helper
 
 @test "Confirm checksum persistence" {
   run $prefix -t docker exec -it mounter md5sum --check /data/checksum
+  assert_success
+}
+
+@test "Destroy container" {
+  run $prefix docker stop mounter
+  run $prefix docker rm mounter
   assert_success
 }

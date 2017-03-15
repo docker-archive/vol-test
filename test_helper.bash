@@ -5,5 +5,6 @@ load 'test/test_helper/bats-assert/load'
 
 driver=$VOLDRIVER
 prefix=$PREFIX
+prefix2=$PREFIX2
 createopts="$CREATEOPTS"
 pluginopts="$PLUGINOPTS"
