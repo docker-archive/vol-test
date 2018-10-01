@@ -43,3 +43,23 @@ load test_helper
   run $prefix2 docker volume ls
   refute_output --partial 'testvol'
 }
+
+@test "Disable plugin on node 2" {
+  run $prefix2 docker plugin disable $driver
+  assert_success
+}
+
+@test "Remove plugin on node 2" {
+  run $prefix2 docker plugin rm $driver
+  assert_success
+}
+
+@test "Disable plugin on node 1" {
+  run $prefix1 docker plugin disable $driver
+  assert_success
+}
+
+@test "Remove plugin on node 1" {
+  run $prefix1 docker plugin rm $driver
+  assert_success
+}
