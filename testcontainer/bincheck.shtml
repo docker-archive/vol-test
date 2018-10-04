@@ -1,1 +1,0 @@
-<!--#exec cmd='STR="/data/binaryfile: OK"; if [ "$(md5sum -c /data/binchecksum)" = "$STR" ]; then echo 1; else echo 0; fi' -->
