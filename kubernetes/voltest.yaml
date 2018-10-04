@@ -1,0 +1,30 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: voltest-pv-claim
+spec:
+  storageClassName: standard
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+kind: Pod
+apiVersion: v1
+metadata:
+  name: voltest-pod
+spec:
+  volumes:
+    - name: voltest-pv-volume
+      persistentVolumeClaim:
+        claimName: voltest-pv-claim
+  containers:
+  - name: voltest-containers
+    image: khudgins/volcheck
+    ports:
+      - containerPort: 80
+        name: "http-server"
+    volumeMounts:
+      - mountPath: "/data"
+        name: voltest-pv-volume
