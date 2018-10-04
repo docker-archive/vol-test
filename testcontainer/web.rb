@@ -5,6 +5,23 @@ require 'sinatra'
 set :bind, '0.0.0.0'
 set :port, 80
 
+get '/' do
+  return "Docker Volume Certification Container"
+end
+
+get '/resetfilecheck' do
+  `rm /data/*`
+  return "1"
+end
+
+get '/status' do
+  return "OK"
+end
+
+get '/shutdown' do
+  Process.kill('TERM', Process.pid)
+end
+
 get '/runfilecheck' do
   `/usr/bin/idempotent_filecheck.sh`
 end
