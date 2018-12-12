@@ -53,7 +53,11 @@ Returns "OK" as a container healthcheck
 Immediately terminates the container process. This will trigger Kubernetes to spawn a replacement container.
 
 
+## TODO items
 
+* Finish test workflow
+* Wrap test workflow in actual test assertions
+* Gather data needed to configure test environment for Docker storage contributors
 
 
 ## Cheat sheet commands:
@@ -67,3 +71,5 @@ kubectl patch statefulset voltest --type='json' -p='[{"op": "replace", "path": "
 
 kubectl describe service voltest
 kubectl describe statefulset voltest
+
+./voltestkube --config="/full/path/to/kube.yml"
