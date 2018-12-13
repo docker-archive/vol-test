@@ -28,3 +28,16 @@ spec:
     volumeMounts:
       - mountPath: "/data"
         name: voltest-pv-volume
+---
+kind: service
+apiVersion: v1
+metadata:
+  name: voltest-service
+spec:
+  selector:
+    app: voltest
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 31000

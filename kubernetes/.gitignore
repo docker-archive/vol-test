@@ -1,2 +1,5 @@
 # Ignore compiled test binary
 voltestkube
+
+# Also ignore kube config for Keith's sanity:
+kube.yml

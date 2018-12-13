@@ -17,6 +17,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 
 	"k8s.io/api/core/v1"
@@ -27,18 +28,21 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"net/http"
+	"time"
 )
 
 type Config struct {
 	KubeConfigFile string
+	PodUrl         string
 }
 
 func getConfig() (config Config) {
 	// Get path to kube config.yaml
 	filePtr := flag.String("config", "kube.yml", "path to Kubernetes client config yaml")
+	podurl := flag.String("podurl", "", "URL string of voltest pod ingress")
 	flag.Parse()
 	config.KubeConfigFile = *filePtr
-
+	config.PodUrl = *podurl
 	return config
 }
 
@@ -53,6 +57,20 @@ func printPVCs(pvcs *v1.PersistentVolumeClaimList) {
 			string(pvc.Status.Phase),
 			quant.String())
 	}
+}
+
+func getContainerCall(url string) string {
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Fatal(err)
+	} else {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return string(body)
+	}
+	return ""
 }
 
 func main() {
@@ -94,7 +112,7 @@ func main() {
 		fmt.Printf("Error getting pod %s in namespace %s: %v\n",
 			pod, namespace, statusError.ErrStatus.Message)
 	} else if err != nil {
-		panic(err.Error())
+		log.Fatal(err)
 	} else {
 		fmt.Printf("Found pod %s in namespace %s\n", pod, namespace)
 	}
@@ -105,29 +123,104 @@ func main() {
 
 	fmt.Printf("Pod %s is %s\n", pod, p.Status.Phase)
 
-	fmt.Println(p.Status.PodIP)
-
 	// Confirm that status page of container is happy
-
-	resp, err := http.Get("http://" + p.Status.PodIP + "/status")
-	if err != nil {
-		fmt.Printf("Response: %s\n", resp.Body)
+	statusUrl := configVars.PodUrl + "/status"
+	fmt.Println(statusUrl)
+	resp := getContainerCall(statusUrl)
+	if resp == "OK" {
+		fmt.Println("Pod Status is Happy")
 	}
 
 	// Clear storage data
+	// Slight bug here, workaround is explained:
+	// the resetfilecheck call should return "1",
+	// but my test environment is running an older version of the
+	// container. So... for now we'll just run the /textcheck
+	// and /bincheck and confirm that we expect "0" for those
+	// after running the reset.
+
+	getContainerCall(configVars.PodUrl + "/resetfilecheck")
+	resp = getContainerCall(configVars.PodUrl + "/textcheck")
+	if resp == "0" {
+		fmt.Println("After Reset, textcheck fails as expected")
+	} else {
+		fmt.Println("Something wrong with environment reset, check your environment")
+	}
+	resp = getContainerCall(configVars.PodUrl + "/bincheck")
+	if resp == "0" {
+		fmt.Println("After Reset, bincheck fails as expected")
+	} else {
+		fmt.Println("Something wrong with environment reset, check your environment")
+	}
 
 	// Initialize storage data
 
+	getContainerCall(configVars.PodUrl + "/runfilecheck")
+
 	// Confirm textfile
+
+	resp = getContainerCall(configVars.PodUrl + "/textcheck")
+	if resp == "1" {
+		fmt.Println("After Reset, textcheck passes as expected")
+	} else {
+		fmt.Println("Textcheck failed")
+	}
 
 	// Confirm binfile
 
+	resp = getContainerCall(configVars.PodUrl + "/bincheck")
+	if resp == "1" {
+		fmt.Println("After Reset, bincheck passes as expected")
+	} else {
+		fmt.Println("bincheck failed")
+	}
+
 	// Reschedule container
+	fmt.Println("Shutting down container")
+	//getContainerCall(configVars.PodUrl + "/shutdown")
+	// We're not using getContainerCall because an http error here
+	// is expected and okay
+	sresp, err := http.Get(configVars.PodUrl + "/shutdown")
+	if err != nil && sresp != nil {
+		fmt.Println("http error okay here")
+	}
 
 	// Confirm textfile on rescheduled container
+	// This can take a little time, so we'll loop around a sleep
+	fmt.Println("Waiting for container restart - we wait up to 5 minutes")
+	for i := 0; i < 30; i++ {
+		time.Sleep(10 * time.Second)
+		hresp, err := http.Get(configVars.PodUrl + "/status")
+		if err != nil {
+			fmt.Print(".")
+		} else {
+			body, err := ioutil.ReadAll(hresp.Body)
+			if err != nil {
+				if string(body) == "OK" {
+					fmt.Println("Container restarted successfully, moving on")
+					break
+				}
+			} else {
+
+			}
+		}
+	}
 
 	// confirm binfile on rescheduled container
 
+	fmt.Println("Confirming container data after restart")
+	resp = getContainerCall(configVars.PodUrl + "/textcheck")
+	if resp == "1" {
+		fmt.Println("After Reset, textcheck passes as expected")
+	} else {
+		fmt.Println("Textcheck failed")
+	}
+	resp = getContainerCall(configVars.PodUrl + "/bincheck")
+	if resp == "1" {
+		fmt.Println("After Reset, bincheck passes as expected")
+	} else {
+		fmt.Println("bincheck failed")
+	}
 	//
 
 	// Get Pod by name
