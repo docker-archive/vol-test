@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"time"
 
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,7 +29,6 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"net/http"
-	"time"
 )
 
 type Config struct {
@@ -97,12 +97,11 @@ func main() {
 	}
 
 	fmt.Printf("Version is %s\n", version)
-	fmt.Println("foo")
 
 	// Confirm test pod exists
 
 	namespace := "default"
-	pod := "voltest-0"
+	pod := "voltest-pod"
 	// foo := Pod.new()
 	//	api := c.CoreV1()
 	_, err = c.CoreV1().Pods(namespace).Get(pod, metav1.GetOptions{})
@@ -176,18 +175,83 @@ func main() {
 	}
 
 	// Reschedule container
-	fmt.Println("Shutting down container")
+	//fmt.Println("Shutting down container")
 	//getContainerCall(configVars.PodUrl + "/shutdown")
 	// We're not using getContainerCall because an http error here
 	// is expected and okay
-	sresp, err := http.Get(configVars.PodUrl + "/shutdown")
-	if err != nil && sresp != nil {
-		fmt.Println("http error okay here")
-	}
+	//sresp, err := http.Get(configVars.PodUrl + "/shutdown")
+	//if err != nil && sresp != nil {
+	//	fmt.Println("http error okay here")
+	//}
 
 	// Confirm textfile on rescheduled container
 	// This can take a little time, so we'll loop around a sleep
-	fmt.Println("Waiting for container restart - we wait up to 5 minutes")
+
+	// We are bypassing this for dev purposes 'cause it takes time
+	//
+	// fmt.Println("Waiting for container restart - we wait up to 5 minutes")
+	// for i := 0; i < 30; i++ {
+	// 	time.Sleep(10 * time.Second)
+	// 	hresp, err := http.Get(configVars.PodUrl + "/status")
+	// 	if err != nil {
+	// 		fmt.Print(".")
+	// 	} else {
+	// 		body, err := ioutil.ReadAll(hresp.Body)
+	// 		if err != nil {
+	// 			if string(body) == "OK" {
+	// 				fmt.Println("Container restarted successfully, moving on")
+	// 				break
+	// 			}
+	// 		} else {
+	//
+	// 		}
+	// 	}
+	// }
+
+	// confirm binfile on rescheduled container
+
+	// fmt.Println("Confirming container data after restart")
+	// resp = getContainerCall(configVars.PodUrl + "/textcheck")
+	// if resp == "1" {
+	// 	fmt.Println("After Reset, textcheck passes as expected")
+	// } else {
+	// 	fmt.Println("Textcheck failed")
+	// }
+	// resp = getContainerCall(configVars.PodUrl + "/bincheck")
+	// if resp == "1" {
+	// 	fmt.Println("After Reset, bincheck passes as expected")
+	// } else {
+	// 	fmt.Println("bincheck failed")
+	// }
+	//
+
+	// Force failover test onto a different node.
+	// First, let's get the node name:
+	// Then, set the node unschedulable
+	// then, kill the container
+
+	p, err = c.CoreV1().Pods(namespace).Get(pod, metav1.GetOptions{})
+	fmt.Printf("Pod node %s is %s\n", pod, p.Spec.NodeName)
+	n, err := c.CoreV1().Nodes().Get(p.Spec.NodeName, metav1.GetOptions{})
+	n.Spec.Unschedulable = true
+	n, err = c.CoreV1().Nodes().Update(n)
+	fmt.Println("Pod was running on " + p.Spec.NodeName)
+	fmt.Println("Shutting down container for forced reschedule")
+	// We're not using getContainerCall because an http error here
+	// is expected and okay
+	//fresp, err := http.Get(configVars.PodUrl + "/shutdown")
+	//if err != nil && fresp != nil {
+	fmt.Println("http error okay here")
+	//}
+	gracePeriodSeconds := int64(0)
+	err = c.CoreV1().Pods(namespace).Delete(p.Name, &metav1.DeleteOptions{GracePeriodSeconds: &gracePeriodSeconds})
+
+	// Confirm textfile on rescheduled container
+	// This can take a little time, so we'll loop around a sleep
+
+	// We are bypassing this for dev purposes 'cause it takes time
+	//
+	fmt.Println("Waiting for container rechedule - we wait up to 5 minutes")
 	for i := 0; i < 30; i++ {
 		time.Sleep(10 * time.Second)
 		hresp, err := http.Get(configVars.PodUrl + "/status")
@@ -197,7 +261,7 @@ func main() {
 			body, err := ioutil.ReadAll(hresp.Body)
 			if err != nil {
 				if string(body) == "OK" {
-					fmt.Println("Container restarted successfully, moving on")
+					fmt.Println("Container rescheduled successfully, moving on")
 					break
 				}
 			} else {
@@ -205,10 +269,11 @@ func main() {
 			}
 		}
 	}
-
+	p, err = c.CoreV1().Pods(namespace).Get(pod, metav1.GetOptions{})
+	fmt.Println("Pod is now running on " + p.Spec.NodeName)
 	// confirm binfile on rescheduled container
 
-	fmt.Println("Confirming container data after restart")
+	fmt.Println("Confirming container data after reschedule")
 	resp = getContainerCall(configVars.PodUrl + "/textcheck")
 	if resp == "1" {
 		fmt.Println("After Reset, textcheck passes as expected")
@@ -221,7 +286,12 @@ func main() {
 	} else {
 		fmt.Println("bincheck failed")
 	}
-	//
+
+	// Cleanup post test:
+	// reset unschedulable node back to schedulable
+
+	//n.Spec.Unschedulable = false
+	//n, err = c.CoreV1().Nodes().Update(n)
 
 	// Get Pod by name
 

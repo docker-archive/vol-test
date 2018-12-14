@@ -29,7 +29,7 @@ spec:
       - mountPath: "/data"
         name: voltest-pv-volume
 ---
-kind: service
+kind: Service
 apiVersion: v1
 metadata:
   name: voltest-service
