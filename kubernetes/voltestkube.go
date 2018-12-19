@@ -101,7 +101,7 @@ func main() {
 	// Confirm test pod exists
 
 	namespace := "default"
-	pod := "voltest-pod"
+	pod := "voltest-0"
 	// foo := Pod.new()
 	//	api := c.CoreV1()
 	_, err = c.CoreV1().Pods(namespace).Get(pod, metav1.GetOptions{})
@@ -175,55 +175,55 @@ func main() {
 	}
 
 	// Reschedule container
-	//fmt.Println("Shutting down container")
-	//getContainerCall(configVars.PodUrl + "/shutdown")
-	// We're not using getContainerCall because an http error here
+	fmt.Println("Shutting down container")
+	//We're not using getContainerCall because an http error here
 	// is expected and okay
-	//sresp, err := http.Get(configVars.PodUrl + "/shutdown")
-	//if err != nil && sresp != nil {
-	//	fmt.Println("http error okay here")
-	//}
+	sresp, err := http.Get(configVars.PodUrl + "/shutdown")
+	if err != nil && sresp != nil {
+		fmt.Println("http error okay here")
+	}
 
 	// Confirm textfile on rescheduled container
 	// This can take a little time, so we'll loop around a sleep
 
 	// We are bypassing this for dev purposes 'cause it takes time
 	//
-	// fmt.Println("Waiting for container restart - we wait up to 5 minutes")
-	// for i := 0; i < 30; i++ {
-	// 	time.Sleep(10 * time.Second)
-	// 	hresp, err := http.Get(configVars.PodUrl + "/status")
-	// 	if err != nil {
-	// 		fmt.Print(".")
-	// 	} else {
-	// 		body, err := ioutil.ReadAll(hresp.Body)
-	// 		if err != nil {
-	// 			if string(body) == "OK" {
-	// 				fmt.Println("Container restarted successfully, moving on")
-	// 				break
-	// 			}
-	// 		} else {
-	//
-	// 		}
-	// 	}
-	// }
+	fmt.Println("Waiting for container restart - we wait up to 10 minutes")
+	fmt.Println("Should be pulling status from " + configVars.PodUrl + "/status")
+	for i := 0; i < 60; i++ {
+		time.Sleep(10 * time.Second)
+		hresp, err := http.Get(configVars.PodUrl + "/status")
+		if err != nil {
+			fmt.Print(".")
+			fmt.Println(err.Error())
+		} else {
+			body, err := ioutil.ReadAll(hresp.Body)
+			if err != nil {
+				fmt.Println(err.Error())
+			} else {
+				if string(body) == "OK" {
+					fmt.Println("Container restarted successfully, moving on")
+					break
+				}
+			}
+		}
+	}
 
 	// confirm binfile on rescheduled container
 
-	// fmt.Println("Confirming container data after restart")
-	// resp = getContainerCall(configVars.PodUrl + "/textcheck")
-	// if resp == "1" {
-	// 	fmt.Println("After Reset, textcheck passes as expected")
-	// } else {
-	// 	fmt.Println("Textcheck failed")
-	// }
-	// resp = getContainerCall(configVars.PodUrl + "/bincheck")
-	// if resp == "1" {
-	// 	fmt.Println("After Reset, bincheck passes as expected")
-	// } else {
-	// 	fmt.Println("bincheck failed")
-	// }
-	//
+	fmt.Println("Confirming container data after restart")
+	resp = getContainerCall(configVars.PodUrl + "/textcheck")
+	if resp == "1" {
+		fmt.Println("After Reset, textcheck passes as expected")
+	} else {
+		fmt.Println("Textcheck failed")
+	}
+	resp = getContainerCall(configVars.PodUrl + "/bincheck")
+	if resp == "1" {
+		fmt.Println("After Reset, bincheck passes as expected")
+	} else {
+		fmt.Println("bincheck failed")
+	}
 
 	// Force failover test onto a different node.
 	// First, let's get the node name:
@@ -239,20 +239,15 @@ func main() {
 	fmt.Println("Shutting down container for forced reschedule")
 	// We're not using getContainerCall because an http error here
 	// is expected and okay
-	//fresp, err := http.Get(configVars.PodUrl + "/shutdown")
-	//if err != nil && fresp != nil {
 	fmt.Println("http error okay here")
-	//}
 	gracePeriodSeconds := int64(0)
 	err = c.CoreV1().Pods(namespace).Delete(p.Name, &metav1.DeleteOptions{GracePeriodSeconds: &gracePeriodSeconds})
 
 	// Confirm textfile on rescheduled container
 	// This can take a little time, so we'll loop around a sleep
 
-	// We are bypassing this for dev purposes 'cause it takes time
-	//
-	fmt.Println("Waiting for container rechedule - we wait up to 5 minutes")
-	for i := 0; i < 30; i++ {
+	fmt.Println("Waiting for container rechedule - we wait up to 10 minutes")
+	for i := 0; i < 60; i++ {
 		time.Sleep(10 * time.Second)
 		hresp, err := http.Get(configVars.PodUrl + "/status")
 		if err != nil {
@@ -260,12 +255,12 @@ func main() {
 		} else {
 			body, err := ioutil.ReadAll(hresp.Body)
 			if err != nil {
+				fmt.Println(err.Error())
+			} else {
 				if string(body) == "OK" {
 					fmt.Println("Container rescheduled successfully, moving on")
 					break
 				}
-			} else {
-
 			}
 		}
 	}
@@ -290,25 +285,7 @@ func main() {
 	// Cleanup post test:
 	// reset unschedulable node back to schedulable
 
-	//n.Spec.Unschedulable = false
-	//n, err = c.CoreV1().Nodes().Update(n)
+	n.Spec.Unschedulable = false
+	n, err = c.CoreV1().Nodes().Update(n)
 
-	// Get Pod by name
-
-	//	label := ""
-	//	field := ""
-
-	//	listOptions := metav1.ListOptions{
-	//		LabelSelector: label,
-	//		FieldSelector: field,
-	//	}
-
-	//pvcs, err := c.PersistentVolumeClaims(namespace).List(listOptions)
-	//if err != nil {
-	//		log.Fatal(err)
-	//	}
-	//	printPVCs(pvcs)
-
-	// Print its creation time
-	//fmt.Println(foo.  )
 }
