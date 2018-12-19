@@ -80,9 +80,9 @@ Critical notices are "Passes as expected". Refer to the voltestkube.go code for 
 ## TODO items
 
 * Clean up voltestkube.go
-** Add actual test assertions
-** Refactor pass to add methods for reused code
-** Add Docker Store compatible json output
+    * Add actual test assertions
+    * Refactor pass to add methods for reused code
+    * Add Docker Store compatible json output
 * Safely clean up kube after failed test passes
 
 ## Cheat sheet commands:
