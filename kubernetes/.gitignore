@@ -3,3 +3,4 @@ voltestkube
 
 # Also ignore kube config for Keith's sanity:
 kube.yml
+dcisetup.sh

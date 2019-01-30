@@ -15,15 +15,16 @@ limitations under the License.
 package main
 
 import (
-	"flag"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"time"
 
-	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
@@ -36,46 +37,36 @@ type Config struct {
 	PodUrl         string
 }
 
-func getConfig() (config Config) {
-	// Get path to kube config.yaml
-	filePtr := flag.String("config", "kube.yml", "path to Kubernetes client config yaml")
-	podurl := flag.String("podurl", "", "URL string of voltest pod ingress")
-	flag.Parse()
-	config.KubeConfigFile = *filePtr
-	config.PodUrl = *podurl
-	return config
+type TestCheck struct {
+	Name    string
+	Passed  bool
+	Message string
 }
 
-func printPVCs(pvcs *v1.PersistentVolumeClaimList) {
-	template := "%-32s%-8s%-8s\n"
-	fmt.Printf(template, "NAME", "STATUS", "CAPACITY")
-	for _, pvc := range pvcs.Items {
-		quant := pvc.Spec.Resources.Requests[v1.ResourceStorage]
-		fmt.Printf(
-			template,
-			pvc.Name,
-			string(pvc.Status.Phase),
-			quant.String())
-	}
+var testList []TestCheck
+var exitStatus int
+
+type patchBoolValue struct {
+	Op    string `json:"op"`
+	Path  string `json:"path"`
+	Value bool   `json:"value"`
 }
 
-func getContainerCall(url string) string {
-	resp, err := http.Get(url)
-	if err != nil {
-		log.Fatal(err)
+func appendTestCheck(list []TestCheck, test TestCheck) {
+	list = append(list, test)
+	fmt.Print(test.Name, ": ", test.Message)
+	if test.Passed == true {
+		fmt.Println("\tOK")
 	} else {
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-		return string(body)
+		fmt.Println("\tFAIL")
 	}
-	return ""
 }
 
 func main() {
+	exitStatus = 0
 	configVars := getConfig()
 	var err error
+	var test TestCheck
 
 	config, err := clientcmd.BuildConfigFromFlags("", configVars.KubeConfigFile)
 	if err != nil {
@@ -90,34 +81,42 @@ func main() {
 	// Test coverage:
 
 	// Confirm Kube version
-
+	test.Name = "Kubernetes Version"
 	version, err := c.Discovery().ServerVersion()
 	if err != nil {
-		log.Fatal(err)
+		test.Passed = false
+		log.Println(err)
+	} else {
+		test.Passed = true
+		test.Message = version.String()
 	}
-
-	fmt.Printf("Version is %s\n", version)
+	appendTestCheck(testList, test)
 
 	// Confirm test pod exists
 
 	namespace := "default"
 	pod := "voltest-0"
-	// foo := Pod.new()
-	//	api := c.CoreV1()
+	test.Name = "Test Pod Existence"
 	_, err = c.CoreV1().Pods(namespace).Get(pod, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		fmt.Printf("Pod %s in namespace %s not found\n", pod, namespace)
+		test.Passed = false
+		test.Message = "Pod " + pod + " in namespace " + namespace + " not found"
 	} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
-		fmt.Printf("Error getting pod %s in namespace %s: %v\n",
-			pod, namespace, statusError.ErrStatus.Message)
+		test.Passed = false
+		test.Message = "Error getting pod " + pod + "in namespace " +
+			namespace + ": " + statusError.ErrStatus.Message
 	} else if err != nil {
-		log.Fatal(err)
+		test.Passed = false
+		test.Message = err.Error()
 	} else {
-		fmt.Printf("Found pod %s in namespace %s\n", pod, namespace)
+		test.Passed = true
+		test.Message = "Found pod " + pod + " in namespace " + namespace
 	}
+	appendTestCheck(testList, test)
 
 	// Confirm test pod is running
 
+	test.Name = "Confirm Running Pod"
 	p, err := c.CoreV1().Pods(namespace).Get(pod, metav1.GetOptions{})
 
 	fmt.Printf("Pod %s is %s\n", pod, p.Status.Phase)
@@ -127,8 +126,13 @@ func main() {
 	fmt.Println(statusUrl)
 	resp := getContainerCall(statusUrl)
 	if resp == "OK" {
-		fmt.Println("Pod Status is Happy")
+		test.Passed = true
+		test.Message = "Pod running"
+	} else {
+		test.Passed = false
+		test.Message = "Pod not running"
 	}
+	appendTestCheck(testList, test)
 
 	// Clear storage data
 	// Slight bug here, workaround is explained:
@@ -137,6 +141,9 @@ func main() {
 	// container. So... for now we'll just run the /textcheck
 	// and /bincheck and confirm that we expect "0" for those
 	// after running the reset.
+
+	// Refactor note: This isn't a test - might should be, but we're ignoring that
+	// until I get the test container pushed into DockerHub
 
 	getContainerCall(configVars.PodUrl + "/resetfilecheck")
 	resp = getContainerCall(configVars.PodUrl + "/textcheck")
@@ -158,26 +165,19 @@ func main() {
 
 	// Confirm textfile
 
-	resp = getContainerCall(configVars.PodUrl + "/textcheck")
-	if resp == "1" {
-		fmt.Println("After Reset, textcheck passes as expected")
-	} else {
-		fmt.Println("Textcheck failed")
-	}
-
+	test = textCheck(configVars.PodUrl, "Initial Textfile Content Confirmation")
+	appendTestCheck(testList, test)
 	// Confirm binfile
 
-	resp = getContainerCall(configVars.PodUrl + "/bincheck")
-	if resp == "1" {
-		fmt.Println("After Reset, bincheck passes as expected")
-	} else {
-		fmt.Println("bincheck failed")
-	}
+	test = binCheck(configVars.PodUrl, "Initial Binary Content Confirmation")
+	appendTestCheck(testList, test)
 
 	// Reschedule container
-	fmt.Println("Shutting down container")
+
 	//We're not using getContainerCall because an http error here
 	// is expected and okay
+	// refactor note: Should check to see if we can run getContainerCall now
+	fmt.Println("Shutting down container")
 	sresp, err := http.Get(configVars.PodUrl + "/shutdown")
 	if err != nil && sresp != nil {
 		fmt.Println("http error okay here")
@@ -185,8 +185,6 @@ func main() {
 
 	// Confirm textfile on rescheduled container
 	// This can take a little time, so we'll loop around a sleep
-
-	// We are bypassing this for dev purposes 'cause it takes time
 	//
 	fmt.Println("Waiting for container restart - we wait up to 10 minutes")
 	fmt.Println("Should be pulling status from " + configVars.PodUrl + "/status")
@@ -210,20 +208,11 @@ func main() {
 	}
 
 	// confirm binfile on rescheduled container
+	test = textCheck(configVars.PodUrl, "Post-restart Textfile Content Confirmation")
+	appendTestCheck(testList, test)
 
-	fmt.Println("Confirming container data after restart")
-	resp = getContainerCall(configVars.PodUrl + "/textcheck")
-	if resp == "1" {
-		fmt.Println("After Reset, textcheck passes as expected")
-	} else {
-		fmt.Println("Textcheck failed")
-	}
-	resp = getContainerCall(configVars.PodUrl + "/bincheck")
-	if resp == "1" {
-		fmt.Println("After Reset, bincheck passes as expected")
-	} else {
-		fmt.Println("bincheck failed")
-	}
+	test = binCheck(configVars.PodUrl, "Post-restart Binaryfile Content Confirmation")
+	appendTestCheck(testList, test)
 
 	// Force failover test onto a different node.
 	// First, let's get the node name:
@@ -268,24 +257,26 @@ func main() {
 	fmt.Println("Pod is now running on " + p.Spec.NodeName)
 	// confirm binfile on rescheduled container
 
-	fmt.Println("Confirming container data after reschedule")
-	resp = getContainerCall(configVars.PodUrl + "/textcheck")
-	if resp == "1" {
-		fmt.Println("After Reset, textcheck passes as expected")
-	} else {
-		fmt.Println("Textcheck failed")
-	}
-	resp = getContainerCall(configVars.PodUrl + "/bincheck")
-	if resp == "1" {
-		fmt.Println("After Reset, bincheck passes as expected")
-	} else {
-		fmt.Println("bincheck failed")
-	}
+	test = textCheck(configVars.PodUrl, "Rescheduled Textfile Content Confirmation")
+	appendTestCheck(testList, test)
+
+	test = binCheck(configVars.PodUrl, "Rescheduled Binaryfile Content Confirmation")
+	appendTestCheck(testList, test)
 
 	// Cleanup post test:
 	// reset unschedulable node back to schedulable
+	// They had to make things this complicated, huh?
+	fmt.Println("Going into cleanup...")
+	//n.Spec.Unschedulable = false
+	fmt.Println("Cleaning up taint on " + n.Name)
+	patchVal := []patchBoolValue{{
+		Op:    "replace",
+		Path:  "/spec/unschedulable",
+		Value: false,
+	}}
+	patchValBytes, _ := json.Marshal(patchVal)
+	//'{"spec": {"unschedulable": false}}'
+	n, err = c.CoreV1().Nodes().Patch(n.GetName(), types.JSONPatchType, patchValBytes)
 
-	n.Spec.Unschedulable = false
-	n, err = c.CoreV1().Nodes().Update(n)
-
+	os.Exit(exitStatus)
 }
