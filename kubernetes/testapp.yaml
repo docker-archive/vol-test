@@ -16,7 +16,8 @@ spec:
     spec:
       containers:
       - name: voltestcontainer
-        image: khudgins/volcheck
+        image: khudgins/volcheck:1.0
+        imagePullPolicy: "Always"
         ports:
         - containerPort: 80
         livenessProbe:

@@ -52,16 +52,6 @@ type patchBoolValue struct {
 	Value bool   `json:"value"`
 }
 
-func appendTestCheck(list []TestCheck, test TestCheck) {
-	list = append(list, test)
-	fmt.Print(test.Name, ": ", test.Message)
-	if test.Passed == true {
-		fmt.Println("\tOK")
-	} else {
-		fmt.Println("\tFAIL")
-	}
-}
-
 func main() {
 	exitStatus = 0
 	configVars := getConfig()
@@ -90,7 +80,7 @@ func main() {
 		test.Passed = true
 		test.Message = version.String()
 	}
-	appendTestCheck(testList, test)
+	testList = appendTestCheck(testList, test)
 
 	// Confirm test pod exists
 
@@ -112,7 +102,7 @@ func main() {
 		test.Passed = true
 		test.Message = "Found pod " + pod + " in namespace " + namespace
 	}
-	appendTestCheck(testList, test)
+	testList = appendTestCheck(testList, test)
 
 	// Confirm test pod is running
 
@@ -132,7 +122,7 @@ func main() {
 		test.Passed = false
 		test.Message = "Pod not running"
 	}
-	appendTestCheck(testList, test)
+	testList = appendTestCheck(testList, test)
 
 	// Clear storage data
 	// Slight bug here, workaround is explained:
@@ -145,18 +135,12 @@ func main() {
 	// Refactor note: This isn't a test - might should be, but we're ignoring that
 	// until I get the test container pushed into DockerHub
 
-	getContainerCall(configVars.PodUrl + "/resetfilecheck")
-	resp = getContainerCall(configVars.PodUrl + "/textcheck")
-	if resp == "0" {
-		fmt.Println("After Reset, textcheck fails as expected")
+	resp = getContainerCall(configVars.PodUrl + "/resetfilecheck")
+	if resp == "1" {
+		fmt.Println("Reset test data for clean run")
 	} else {
-		fmt.Println("Something wrong with environment reset, check your environment")
-	}
-	resp = getContainerCall(configVars.PodUrl + "/bincheck")
-	if resp == "0" {
-		fmt.Println("After Reset, bincheck fails as expected")
-	} else {
-		fmt.Println("Something wrong with environment reset, check your environment")
+		fmt.Println("Couldn't reset test data, check environment.")
+		os.Exit(1)
 	}
 
 	// Initialize storage data
@@ -166,11 +150,11 @@ func main() {
 	// Confirm textfile
 
 	test = textCheck(configVars.PodUrl, "Initial Textfile Content Confirmation")
-	appendTestCheck(testList, test)
+	testList = appendTestCheck(testList, test)
 	// Confirm binfile
 
 	test = binCheck(configVars.PodUrl, "Initial Binary Content Confirmation")
-	appendTestCheck(testList, test)
+	testList = appendTestCheck(testList, test)
 
 	// Reschedule container
 
@@ -180,7 +164,7 @@ func main() {
 	fmt.Println("Shutting down container")
 	sresp, err := http.Get(configVars.PodUrl + "/shutdown")
 	if err != nil && sresp != nil {
-		fmt.Println("http error okay here")
+		fmt.Println("Expected http error on container shutdown")
 	}
 
 	// Confirm textfile on rescheduled container
@@ -197,10 +181,10 @@ func main() {
 		} else {
 			body, err := ioutil.ReadAll(hresp.Body)
 			if err != nil {
-				fmt.Println(err.Error())
+				fmt.Print(".")
 			} else {
 				if string(body) == "OK" {
-					fmt.Println("Container restarted successfully, moving on")
+					fmt.Println("\nContainer restarted successfully, moving on")
 					break
 				}
 			}
@@ -209,10 +193,10 @@ func main() {
 
 	// confirm binfile on rescheduled container
 	test = textCheck(configVars.PodUrl, "Post-restart Textfile Content Confirmation")
-	appendTestCheck(testList, test)
+	testList = appendTestCheck(testList, test)
 
 	test = binCheck(configVars.PodUrl, "Post-restart Binaryfile Content Confirmation")
-	appendTestCheck(testList, test)
+	testList = appendTestCheck(testList, test)
 
 	// Force failover test onto a different node.
 	// First, let's get the node name:
@@ -258,10 +242,10 @@ func main() {
 	// confirm binfile on rescheduled container
 
 	test = textCheck(configVars.PodUrl, "Rescheduled Textfile Content Confirmation")
-	appendTestCheck(testList, test)
+	testList = appendTestCheck(testList, test)
 
 	test = binCheck(configVars.PodUrl, "Rescheduled Binaryfile Content Confirmation")
-	appendTestCheck(testList, test)
+	testList = appendTestCheck(testList, test)
 
 	// Cleanup post test:
 	// reset unschedulable node back to schedulable
@@ -277,6 +261,6 @@ func main() {
 	patchValBytes, _ := json.Marshal(patchVal)
 	//'{"spec": {"unschedulable": false}}'
 	n, err = c.CoreV1().Nodes().Patch(n.GetName(), types.JSONPatchType, patchValBytes)
-
+	exitStatus = reportAndOutput(testList)
 	os.Exit(exitStatus)
 }

@@ -1,12 +1,14 @@
 ## Introduction
 
-This is the Kubernetes-specific stuff needed to test storage for Docker support. This is currently under development, is ROUGH, but if you want to kick the tires on it, feel free. Just provide feedback to keith@docker.com or through GitHub.
+This is the Kubernetes-specific certification system needed to test storage for Docker support. The test is designed to work against any valid storage driver, no matter which API. Follow instructions below to get started. If you need help or have feedback, contact me at keith@docker.com or through GitHub.
 
 The tests revolve around a container that runs most of the important bits. The container is deployed in a Kubernetes Service using the NodePort network access method, so once you're deployed, you can hit any node in the Kube cluster on that port via HTTP and have access to the container's native API.
 
 ## Setup
 
-Currently, this only works with in-tree drivers. You'll need to get Docker EE set up with some type of persistent storage. Before deploying the test framework bits, you'll also need a Kubernetes StorageClass defined in your environment. The latest Docker EE ships with Kubernetes 1.11, and has from Kube beta-level CSI support, as well as GA FlexVolume. If you want to test a FlexVolume or CSI plugin, please contact us at the above email.
+Currently, this only works with in-tree drivers (Early access versions of Docker Enterprise have CSI and FlexColume as well).
+
+Install Docker EE and configure your storage integration. Define a StorageClass based on your storage driver. The latest Docker EE ships with Kubernetes 1.11, and has from Kube beta-level CSI support, as well as GA FlexVolume. If you want to test a FlexVolume or CSI plugin, please contact us at the above email.
 
 To get going, edit the kubernetes/testapp.yaml file. The only config change needed is to provide your storageClass.
 
@@ -46,45 +48,42 @@ The config path does NOT expand, so don't use `~/` shortcuts - full path only fo
 Test output will look like this if everything's working:
 
 ```
-Version is v1.11.2-docker-2
-Found pod voltest-0 in namespace default
 Pod voltest-0 is Running
-http://10.2.2.74:32779/status
-Pod Status is Happy
-After Reset, textcheck fails as expected
-After Reset, bincheck fails as expected
-After Reset, textcheck passes as expected
-After Reset, bincheck passes as expected
+http://3.17.176.248:34511/status
+Reset test data for clean run
 Shutting down container
 Waiting for container restart - we wait up to 10 minutes
-Should be pulling status from http://10.2.2.74:32779/status
-..........
+Should be pulling status from http://3.17.176.248:34511/status
+.Get http://3.17.176.248:34511/status: dial tcp 3.17.176.248:34511: connect: connection refused
+.Get http://3.17.176.248:34511/status: dial tcp 3.17.176.248:34511: connect: connection refused
+.Get http://3.17.176.248:34511/status: dial tcp 3.17.176.248:34511: connect: connection refused
+.Get http://3.17.176.248:34511/status: dial tcp 3.17.176.248:34511: connect: connection refused
 Container restarted successfully, moving on
-Confirming container data after restart
-After Reset, textcheck passes as expected
-After Reset, bincheck passes as expected
-Pod node voltest-0 is ip-172-31-7-74.us-east-2.compute.internal
-Pod was running on ip-172-31-7-74.us-east-2.compute.internal
+Pod node voltest-0 is ip-172-31-1-136.us-east-2.compute.internal
+Pod was running on ip-172-31-1-136.us-east-2.compute.internal
 Shutting down container for forced reschedule
 http error okay here
 Waiting for container rechedule - we wait up to 10 minutes
-.....Container rescheduled successfully, moving on
-Pod is now running on ip-172-31-12-81.us-east-2.compute.internal
-Confirming container data after reschedule
-After Reset, textcheck passes as expected
-After Reset, bincheck passes as expected
+.....................Container rescheduled successfully, moving on
+Pod is now running on ip-172-31-14-222.us-east-2.compute.internal
+Going into cleanup...
+Cleaning up taint on ip-172-31-1-136.us-east-2.compute.internal
+Test results:
++-------------------------------------------------------+
+Kubernetes Version: v1.11.5-docker-1-golang-1106		OK
+Test Pod Existence: Found pod voltest-0 in namespace default		OK
+Confirm Running Pod: Pod running		OK
+Initial Textfile Content Confirmation: Textcheck passes as expected		OK
+Initial Binary Content Confirmation: Bincheck passes as expected		OK
+Post-restart Textfile Content Confirmation: Textcheck passes as expected		OK
+Post-restart Binaryfile Content Confirmation: Bincheck passes as expected		OK
+Rescheduled Textfile Content Confirmation: Textcheck passes as expected		OK
+Rescheduled Binaryfile Content Confirmation: Bincheck passes as expected		OK
+All tests passed.
 ```
 
 Critical notices are "Passes as expected". Refer to the voltestkube.go code for more info.
 
-## TODO items
-
-* Clean up voltestkube.go
-    * Refactor pass to add methods for reused code
-    * Add actual test assertions
-    * Add struct to contain test results
-    * Add Docker Store compatible json output from struct
-* Safely clean up kube after failed test runs
 
 ## Cheat sheet commands:
 

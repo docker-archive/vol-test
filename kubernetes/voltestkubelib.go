@@ -61,6 +61,14 @@ func binCheck(podurl string, testname string) TestCheck {
 	return test
 }
 
+func appendTestCheck(list []TestCheck, test TestCheck) []TestCheck {
+	list = append(list, test)
+	if test.Passed == true {
+	} else {
+	}
+	return list
+}
+
 func textCheck(podurl string, testname string) TestCheck {
 	var test TestCheck
 	test.Name = testname
@@ -73,4 +81,25 @@ func textCheck(podurl string, testname string) TestCheck {
 		test.Message = "Textcheck failed"
 	}
 	return test
+}
+
+func reportAndOutput(list []TestCheck) int {
+	exitcode := 0
+	fmt.Println("Test results:")
+	fmt.Println("+-------------------------------------------------------+")
+	for _, test := range list {
+		fmt.Print(test.Name + ": " + test.Message + "\t\t")
+		if test.Passed == false {
+			exitcode = 1
+			fmt.Println("FAILED")
+		} else {
+			fmt.Println("OK")
+		}
+	}
+	if exitcode == 0 {
+		fmt.Println("All tests passed.")
+	} else {
+		fmt.Println("Check failures.")
+	}
+	return exitcode
 }
