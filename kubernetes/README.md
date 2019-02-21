@@ -29,7 +29,7 @@ Now you can kick the container around and exercise storage using the container's
 The actual test program is in early development - it works, and you can run tests, but formatting is not a current concern at the moment. Still, feel free to build and run it! It's currently one self-contained Golang file, so you can build it with:
 
 ```
-go build voltestkube.go
+go build voltestkube.go voltestkubelib.go
 ```
 
 To run the tests, you need two things:
