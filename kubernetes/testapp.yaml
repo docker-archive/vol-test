@@ -1,0 +1,59 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: voltest
+spec:
+  selector:
+    matchLabels:
+      app: voltest
+  serviceName: "voltest"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: voltest
+    spec:
+      containers:
+      - name: voltestcontainer
+        image: khudgins/volcheck:1.0
+        imagePullPolicy: "Always"
+        ports:
+        - containerPort: 80
+        livenessProbe:
+          initialDelaySeconds: 2
+          periodSeconds: 10
+          httpGet:
+            path: /status
+            port: 80
+        readinessProbe:
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          httpGet:
+            path: /status
+            port: 80
+        volumeMounts:
+        - name: data
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "standard"
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: voltestservice
+  labels:
+    app: voltest
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+  selector:
+    app: voltest
