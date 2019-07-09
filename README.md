@@ -18,7 +18,7 @@ vol-test supports testing against remote environments. Remote Docker hosts shoul
 
     ```
     git clone https://github.com/khudgins/vol-test
-    cd vol-tests
+    cd vol-test
     git submodule init
     git submodule update --recursive --remote
     ```
