@@ -1,14 +1,14 @@
 ## Introduction
 
-This is the Kubernetes-specific certification system needed to test storage for Docker support. The test is designed to work against any valid storage driver, no matter which API. Follow instructions below to get started. If you need help or have feedback, contact me at keith@docker.com or through GitHub.
+This is the Kubernetes-specific certification system needed to test storage for Docker support. The test is designed to work against any valid, supported Kubernetes storage driver, no matter which API. Follow instructions below to get started. If you need help or have feedback, contact me at keith@docker.com or through GitHub.
 
 The tests revolve around a container that runs most of the important bits. The container is deployed in a Kubernetes Service using the NodePort network access method, so once you're deployed, you can hit any node in the Kube cluster on that port via HTTP and have access to the container's native API.
 
 ## Setup
 
-Currently, this only works with in-tree drivers (Early access versions of Docker Enterprise have CSI and FlexColume as well).
+Docker EE 3.0 supports CSI, in-tree drivers, and some external provisioners. FlexVolume won't work on Docker EE 3.0 at this time.
 
-Install Docker EE and configure your storage integration. Define a StorageClass based on your storage driver. The latest Docker EE ships with Kubernetes 1.11, and has from Kube beta-level CSI support, as well as GA FlexVolume. If you want to test a FlexVolume or CSI plugin, please contact us at the above email.
+Install Docker EE and configure your storage integration. Define a StorageClass based on your storage driver. The latest Docker EE ships with Kubernetes 1.14.
 
 To get going, edit the kubernetes/testapp.yaml file. The only config change needed is to provide your storageClass.
 
